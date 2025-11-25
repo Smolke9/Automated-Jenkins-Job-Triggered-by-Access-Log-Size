@@ -1,0 +1,103 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'LOG_PATH', defaultValue: '/var/log/custom/access.log', description: 'Full path of the log file to upload')
+    }
+
+    environment {
+        AWS_ACCESS_KEY_ID     = '*********************'
+        AWS_SECRET_ACCESS_KEY = '*****************************'
+        S3_BUCKET = 'jenkinslooooooogfile'
+        EMAIL_RECIPIENTS = 'smolke9@gmail.com'
+        AWS_REGION = 'ap-south-1'
+    }
+
+    stages {
+
+        stage('Verify Log File') {
+            steps {
+                script {
+                    echo "Checking log file at: ${params.LOG_PATH}"
+
+                    if (!fileExists(params.LOG_PATH)) {
+                        error "Log file not found at: ${params.LOG_PATH}"
+                    }
+
+                    echo "Log file found. Proceeding to upload..."
+                }
+            }
+        }
+
+        stage('Upload to S3') {
+            steps {
+                script {
+                    echo "Uploading ${params.LOG_PATH} to S3 bucket ${env.S3_BUCKET}..."
+
+                    def result = sh(
+                        script: """aws s3 cp '${params.LOG_PATH}' s3://${env.S3_BUCKET}/logs/ \
+--region ${env.AWS_REGION} --no-progress""",
+                        returnStatus: true
+                    )
+
+                    if (result != 0) {
+                        error "AWS CLI upload failed with status code ${result}"
+                    }
+                }
+            }
+        }
+
+        stage('Clear Log File') {
+            steps {
+                script {
+                    echo "Clearing log file after upload: ${params.LOG_PATH}"
+                    sh "cat /dev/null > '${params.LOG_PATH}'"
+                }
+            }
+        }
+    }
+
+    post {
+
+        success {
+            echo "Log file uploaded and cleared successfully!"
+
+            emailext(
+                to: "${env.EMAIL_RECIPIENTS}",
+                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """Hello Suraj,
+
+The log file has been successfully uploaded to S3 and cleared.
+
+📄 Log Path: ${params.LOG_PATH}
+🔗 Job URL: ${env.BUILD_URL}
+🪣 S3 Bucket: ${env.S3_BUCKET}
+
+Regards,
+Jenkins
+"""
+            )
+        }
+
+        failure {
+            echo "Upload failed."
+
+            emailext(
+                to: "${env.EMAIL_RECIPIENTS}",
+                subject: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """Hello Suraj,
+
+The log file upload to S3 failed.
+
+📄 Log Path: ${params.LOG_PATH}
+🔗 Job URL: ${env.BUILD_URL}
+
+Please check the Jenkins logs for details.
+
+Regards,
+Jenkins
+"""
+            )
+        }
+    }
+}
