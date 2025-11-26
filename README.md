@@ -3,7 +3,7 @@
 ### Project 5 -- DevOps Automation
 
 **Author:** Suraj Molke\
-**Mentor:** Ravindra Bagle Sir, Swati Zampal Ma'am
+**Mentor:** Ravindra Bagale Sir, Swati Zampal Ma'am
 
 ## 📌 Project Overview
 
